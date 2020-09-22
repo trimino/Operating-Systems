@@ -8,5 +8,5 @@ These projects are completed during the semester and will be optimize and refact
 
 |## Project Name |		 ##Concepts Covered		   |
 |:------------:|:-------------------------------------------------:|
-|   Mav Shell  | fork, oids, exec, string, processing, backend CLI |
+|   Mav Shell  | fork, pids, exec, string, processing, backend CLI |
 -------------------------------------------------------------------
