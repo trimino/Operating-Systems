@@ -6,7 +6,7 @@ These are the attempts at learning how fundamental concepts of Operating System 
 These projects are completed during the semester and will be optimize and refactored later.
 
 
-|## Project Name |		 ##Concepts Covered		   |
+|**Project Name** |		 **Concepts Covered**		   |
 |:------------:|:-------------------------------------------------:|
 |   Mav Shell  | fork, pids, exec, string, processing, backend CLI |
 -------------------------------------------------------------------
