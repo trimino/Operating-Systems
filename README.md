@@ -1,2 +1,12 @@
 # Operating-Systems
-Projects from my operating systems course at UTA 
+Projects from my operating systems course at UTA.
+
+
+These are the attempts at learning how fundamental concepts of Operating System works.
+These projects are completed during the semester and will be optimize and refactored later.
+
+
+| Project Name |		 Concepts Covered		   |
+-------------------------------------------------------------------
+|   Mav Shell  | fork, oids, exec, string, processing, backend CLI |
+-------------------------------------------------------------------
