@@ -9,6 +9,6 @@ These projects are completed during the semester and will be optimize and refact
 |**Project Name** |		 **Concepts Covered**		   |
 |:------------:|:-------------------------------------------------:|
 |   Mav Shell  | fork, pids, exec, string, processing, backend CLI |
--------------------------------------------------------------------
+|------------------------------------------------------------------|
 |   Call       | moving memory from user space to kernel space and back |
 -------------------------------------------------------------------------
