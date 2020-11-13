@@ -8,6 +8,8 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <limits.h>
 
 #define ALIGN4(s)         (((((s) - 1) >> 2) << 2) + 4)
 #define BLOCK_DATA(b)      ((b) + 1)
@@ -69,9 +71,6 @@ struct _block *tracker  = NULL; /* Helps keep track of the current block when us
  *
  * \return a _block that fits the request or NULL if no free _block matches
  *
- * \TODO Implement Next Fit - Done
- * \TODO Implement Best Fit - Done
- * \TODO Implement Worst Fit - Done
  */
 struct _block *findFreeBlock(struct _block **last, size_t size) 
 {
@@ -210,7 +209,25 @@ void *malloc(size_t size)
    struct _block *last = heapList;
    struct _block *next = findFreeBlock(&last, size);
 
-   /* TODO: Split free _block if possible */
+   
+   const int block_size = sizeof( struct _block );
+  
+   /* block is larger than what we need then split block */
+   if ( next && next->size - size > block_size ){ 
+      int old_size = next->size;
+      struct _block *old_next = next;
+      uint8_t *ptr = (uint8_t*) next;
+      
+      if ( next->next ){
+         next->next = (struct _block*) (ptr + (int) size + block_size );
+         next->next->free = true;
+         next->next->size = (size_t) (old_size - (int) size - block_size );
+         next->next->next = old_next;
+      }
+
+      num_splits++;
+      num_reuses++;
+   }
 
    /* Could not find free _block, so grow heap */
    if (next == NULL) 
@@ -223,9 +240,13 @@ void *malloc(size_t size)
    {
       return NULL;
    }
-   
+  
    /* Mark _block as in use */
    next->free = false;
+
+   /* Increment coutners */
+   num_mallocs++;
+   num_requested+=size;
 
    /* Return data address associated with _block */
    return BLOCK_DATA(next);
@@ -254,7 +275,8 @@ void free(void *ptr)
    curr->free = true;
 
    /* TODO: Coalesce free _blocks if needed */
-   if (
+   const int block_size = sizeof( struct _block );
+   num_frees++;
 }
 
 /* vim: set expandtab sts=3 sw=3 ts=6 ft=cpp: --------------------------------*/
