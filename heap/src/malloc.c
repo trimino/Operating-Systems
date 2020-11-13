@@ -70,8 +70,8 @@ struct _block *tracker  = NULL; /* Helps keep track of the current block when us
  * \return a _block that fits the request or NULL if no free _block matches
  *
  * \TODO Implement Next Fit - Done
- * \TODO Implement Best Fit
- * \TODO Implement Worst Fit
+ * \TODO Implement Best Fit - Done
+ * \TODO Implement Worst Fit - Done
  */
 struct _block *findFreeBlock(struct _block **last, size_t size) 
 {
@@ -90,9 +90,9 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    /* Best fit */
    struct _block* smallest = NULL;/* pointer to block gives the least space after allocation */ 
    int comparison = INT_MAX;      /* helps identify the smallest space after allocation */  
-   while( curr && !(curr->free && curr->size >= size) ){
-      int current_size = curr->size;
-      if( current_size < comparison ){
+   while ( curr && !(curr->free && curr->size >= size) ){
+      int current_size = (int) curr->size;
+      if ( current_size < comparison ){
          smallest = curr;
          comparison = smallest->size;
       }
@@ -105,8 +105,8 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    /* Worst fit */
    struct _block *largest = NULL; /* pointer to block gives the most space after allocation */
    int comparison = INT_MIN;      /* helps identify the largest space after allocation */
-   while( curr && !(curr->free && curr->size >= size) ){
-      int current_size = curr->size;
+   while ( curr && !(curr->free && curr->size >= size) ){
+      int current_size = (int) curr->size;
       if ( current_size > comparison ){
          largest = curr;
          comparison = largest->size;
@@ -121,7 +121,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
    if ( tracker != NULL ) {
       curr = tracker;
    }
-   while( curr && !(curr->free && curr->size >= size) ){
+   while ( curr && !(curr->free && curr->size >= size) ){
       *last = curr;
       curr = curr->next;
    }
@@ -254,6 +254,7 @@ void free(void *ptr)
    curr->free = true;
 
    /* TODO: Coalesce free _blocks if needed */
+   if (
 }
 
 /* vim: set expandtab sts=3 sw=3 ts=6 ft=cpp: --------------------------------*/
