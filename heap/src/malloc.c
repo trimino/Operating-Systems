@@ -273,29 +273,16 @@ void free(void *ptr)
    struct _block *curr = BLOCK_HEADER(ptr);
    assert(curr->free == 0);
    curr->free = true;
+   
+   num_frees++;
 
    /* TODO: Coalesce free _blocks if needed */
    const int block_size = sizeof( struct _block );
-   num_frees++;
-}
-
-
-void *realloc(void ptr*, size_t size){
-   /* declare new ptr then malloc the new pointer */
-   struct _block *new_ptr = malloc( size );
-
-   if (ptr && new_ptr ){
-      memcpy( new_ptr, ptr, size );
+   if ( curr->free && curr->next && curr->next->free ){
+      curr->next = curr->next->next;
+      curr->size = curr->size + curr->next->size + block_size;
+      num_coalesces++;
    }
-   return new_ptr;
-}
-
-void *calloc( size_t num, size_t, size_num ){
-   struct _block *ptr = malloc( num * size_num );
-   if ( ptr ) {
-      memset( ptr, '/0', num * size );
-   }
-   return ptr;
 }
 
 /* vim: set expandtab sts=3 sw=3 ts=6 ft=cpp: --------------------------------*/
