@@ -172,6 +172,7 @@ struct _block *growHeap(struct _block *last, size_t size)
    curr->size = size;
    curr->next = NULL;
    curr->free = false;
+   max_heap+=size;
    return curr;
 }
 
@@ -189,6 +190,8 @@ struct _block *growHeap(struct _block *last, size_t size)
  */
 void *malloc(size_t size) 
 {
+   num_mallocs++;
+   num_requested+=size;
 
    if( atexit_registered == 0 )
    {
@@ -226,27 +229,27 @@ void *malloc(size_t size)
       }
 
       num_splits++;
-      num_reuses++;
+      num_blocks++;
    }
 
    /* Could not find free _block, so grow heap */
    if (next == NULL) 
    {
       next = growHeap(last, size);
+      num_blocks++;
+      num_grows++;
    }
 
    /* Could not find free _block or grow heap, so just return NULL */
    if (next == NULL) 
    {
       return NULL;
+   }else{
+      num_reuses++;
    }
   
    /* Mark _block as in use */
    next->free = false;
-
-   /* Increment coutners */
-   num_mallocs++;
-   num_requested+=size;
 
    /* Return data address associated with _block */
    return BLOCK_DATA(next);
@@ -276,12 +279,12 @@ void free(void *ptr)
    
    num_frees++;
 
-   /* TODO: Coalesce free _blocks if needed */
    const int block_size = sizeof( struct _block );
    if ( curr->free && curr->next && curr->next->free ){
       curr->next = curr->next->next;
       curr->size = curr->size + curr->next->size + block_size;
       num_coalesces++;
+      num_blocks--;
    }
 }
 
