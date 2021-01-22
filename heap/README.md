@@ -3,7 +3,7 @@
 
 ## Summary
 
-This mini operating systems project is to build and implement a custom malloc and free function. This project will I needed to implement a library that interacts with the operating system to perform heap management on behalf of a user process, 
+This mini operating systems project is to build and implement a custom malloc and free function. In this project I needed to implement a library that interacts with the operating system to perform heap management on behalf of a user process. 
 
 
 
