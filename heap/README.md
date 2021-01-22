@@ -23,7 +23,7 @@ This mini operating systems project is to build and implement a custom malloc an
 	* Count number of times blocks in free list
 	* Count total amount of memory requested
 	* Maximum size of the heap
-* [x] Code will print these statistics:
+* [x] Code will print these statistics (THESE STAT ARE FAKE):
 	* mallocs:	8
 	* freees:	8
 	* reuses:	1
