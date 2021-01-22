@@ -8,9 +8,9 @@ This mini operating systems project is to build and implement a custom malloc an
 
 
 
-* Building and Running the Code
+## Building and Running the Code
 	* The code compiles into four shared libraries and six test programs. To build the code to your top level directory and type:
-		make
+		$ make
 
 	* Once you have the library, you can use it to override the existing malloc by using LD_PRELOAD:
 			$ env LD_PRELOAD=lib/libmalloc-ff.so cat README.md
