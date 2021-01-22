@@ -22,3 +22,33 @@ This mini operating systems project is to build and implement a custom malloc an
 	* First-Fit: libmalloc-ff.so
 	* Next-Fit: libmalloc-nf.so
 	* Worst-Fit: libmalloc-wf.so
+
+
+
+
+## Program Requirements
+
+	* [x] Implemented a splitting and coalescing of free blocks. If two blocks are adjacent then combine them. If a free block is larger than the requested size then split the block into two
+	* [x] Implemented a three additional heap management strategies: Next-Fit, Worst-Fit, Best-Fit, and First-Fit
+	* [x] Counters:
+		* Count number of times the user calls malloc successfully
+		* Count number of times the user calls free successfully
+		* Count number of times we reuse an existing block 
+		* Count number of times we request a new block
+		* Count number of times we split a block 
+		* Count number of times we coalesce blocks
+		* Count number of times blocks in free list
+		* Count total amount of memory requested
+		* Maximum size of the heap
+	* [x] Code will print these statistics:
+		* mallocs:	8
+		* freees:	8
+		* reuses:	1
+		* grows:	5
+		* splits:	1
+		* coalesces:	1
+		* blocks:	5
+		* requested:	7298
+		* max heap:	4096
+	* [x] Four test programs are provided to help debug your code. Located in the tests directory
+	* [x] Implement realloc and calloc
