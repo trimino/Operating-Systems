@@ -31,9 +31,11 @@
 #include <string.h>
 #include <signal.h>
 #include <stdint.h>
+#include <ctype.h>
+#include <unistd.h>
 
-#define MAX_NUM_ARGUMENTS 3
-
+#define MAX_NUM_ARGUMENTS 4
+#define NUM_ENTRIES 16
 #define WHITESPACE " \t\n"      // We want to split our command line up into tokens
                                 // so we need to define what delimits our tokens.
                                 // In this case  white space
@@ -59,6 +61,7 @@ int32_t FirstDataSector = 0;
 int32_t FirstSectorofCluster = 0;
 
 FILE *fp;
+int file_open = 0;
 
 // Each record can be represented by the struct below
 struct __attribute__((__packed__)) DirectoryEntry{
@@ -67,7 +70,7 @@ struct __attribute__((__packed__)) DirectoryEntry{
     uint8_t     Unused1[8];
     uint8_t     Unused2[4];
     uint16_t    DIR_FirstClusterHigh;
-    uint16_t    DOR_FirstClusterLow;
+    uint16_t    DIR_FirstClusterLow;
     uint32_t    DIR_FileSize;
 };
 struct DirectoryEntry dir[16];
@@ -101,49 +104,224 @@ int16_t NextLB(uint32_t sector)
 }
 
 
-int matching (char* input)
+int compare(char *userString, char *directoryString)
 {
-    int location;
-    int result = -100;
-    int i;
+    char *dotdot = "..";
 
-    // Convert all characters to uppercase
-    for( i = 0; i < 11; i++ )
+    if (strncmp(dotdot, userString, 2) == 0)
     {
-        input[i] = toupper( input[i] );
-    }
-
-    for (location  = 0; location < 16; location ++)
-    {
-        if(dir[location].DIR_Attr == 0x01 || dir[location].DIR_Attr == 0x10 || dir[location].DIR_Attr == 0x20)
+        if (strncmp(userString, directoryString, 2) == 0)
         {
-            char filename[12];
-            char *string = strtok(input," ");
-            strcpy(filename,dir[location].DIR_Name);
-            char *token = strtok(filename," ");
-
-            if(string)
-            {
-                if(strcmp(string,token)==0)
-                {
-                    result = location;
-                }
-            }
-            else
-            {
-                char *string = strtok(input," ");
-                if(strcmp(string,token)==0)
-                {
-                    result = location;
-                }
-            }
-
+        return 1;
         }
+        return 0;
     }
-    return result;
+
+    char IMG_Name[12];
+
+    strncpy(IMG_Name, directoryString, 11);
+    IMG_Name[11] = '\0';
+
+    char input[11];
+    memset(input, 0, 11);
+    strncpy(input, userString, strlen(userString));
+
+    char expanded_name[12];
+    memset(expanded_name, ' ', 12);
+
+    char *token = strtok(input, ".");
+
+    strncpy(expanded_name, token, strlen(token));
+
+    token = strtok(NULL, ".");
+
+    if (token)
+    {
+        strncpy((char *)(expanded_name + 8), token, strlen(token));
+    }
+
+    expanded_name[11] = '\0';
+
+    int i;
+    for (i = 0; i < 11; i++)
+    {
+        expanded_name[i] = toupper(expanded_name[i]);
+    }
+
+    if (strncmp(expanded_name, IMG_Name, 11) == 0)
+    {
+        return 1;
+    }
+    return 0;
 }
 
 
+/* 
+*Name       : info
+*Parameters : None
+*Returns    : int
+*Description: prints the informatin about BPB
+*/
+int info()
+{
+    printf("BPB_BytsPerSec: %d\nBPB_BytsPerSec: %.4x\n", BPB_BytesPerSec, BPB_BytesPerSec); //512
+    printf("BPB_SecPerClus: %d\nBPB_SecPerClus: %.4x\n", BPB_SecPerClus, BPB_FATSz32);    //1
+    printf("BPB_RsvdSecCnt: %d\nBPB_RsvdSecCnt: %.4x\n", BPB_RsvdSecCnt, BPB_FATSz32);    //32
+    printf("BPB_NumFATs: %d\nBPB_NumFATs: %.4x\n", BPB_NumFATs, BPB_FATSz32);
+    printf("BPB_FATSz32: %d\nBPB_FATSz32: %.4x\n", BPB_FATSz32, BPB_FATSz32);
+    return 0;
+}
+
+
+/* 
+*Name       : ls
+*Parameters : None
+*Returns    : int
+*Description: List contents in the directory execept for deleted and system files
+*/
+int ls()
+{
+    int i ;
+    for(i = 0; i < NUM_ENTRIES; i++)
+    {
+        char filename[12];
+        strncpy(filename, dir[i].DIR_Name, 11);
+        // Do not list deleted files or system volme names
+        if((dir[i].DIR_Attr == 0x01 || dir[i].DIR_Attr == 0x10 || dir[i].DIR_Attr == 0x20 ) && filename[0] != 0xffffffe5)
+        {
+            printf("%s\n",filename);
+        }
+    }
+    return 0;
+}
+
+
+/*
+*Name       : readfile
+*Parameters : filename, requested off set, requested bytes
+*Returns    : Outputs the bytes in hexadecimal
+*Description: Reads from a given file at the position (in bytes) specified by the position parameter and output the number of bytes specified. 
+*/
+int readfile(char *filename, int requestedOffset, int requestedBytes)
+{
+    int i;
+    int found = 0;
+    int bytesRemainingToRead = requestedBytes;
+
+    if (requestedOffset < 0)
+    {
+        printf("Error: Offset is less than zero");
+    }
+
+    for (i = 0; i < NUM_ENTRIES; i++)
+    {
+        if (compare(filename, dir[i].DIR_Name))
+        {
+            int cluster = dir[i].DIR_FirstClusterLow;
+
+            found = 1;
+
+            int searchSize = requestedOffset;
+
+            while (searchSize >= BPB_BytesPerSec)
+            {
+                cluster = NextLB(cluster);
+                searchSize = searchSize - BPB_BytesPerSec;
+            }
+
+            int offset = LBAToOffset(cluster);
+            int byteOffset = (requestedOffset % BPB_BytesPerSec);
+            fseek(fp, offset + byteOffset, SEEK_SET);
+
+            unsigned char buffer[BPB_BytesPerSec];
+
+            int firstblockbytes = BPB_BytesPerSec - requestedOffset;
+            fread(buffer, 1, firstblockbytes, fp);
+
+            for (i = 0; i < firstblockbytes; i++)
+            {
+                printf("%x ", buffer[i]);
+            }
+
+            bytesRemainingToRead = bytesRemainingToRead - firstblockbytes;
+
+            while (bytesRemainingToRead >= 512)
+            {
+                cluster = NextLB(cluster);
+                offset = LBAToOffset(cluster);
+                fseek(fp, offset, SEEK_SET);
+                fread(buffer, 1, BPB_BytesPerSec, fp);
+
+                for (i = 0; i < BPB_BytesPerSec; i++)
+                {
+                    printf("%x ", buffer[i]);
+                }
+                bytesRemainingToRead = bytesRemainingToRead - BPB_BytesPerSec;
+            }
+
+            if (bytesRemainingToRead)
+            {
+                cluster = NextLB(cluster);
+                offset = LBAToOffset(cluster);
+                fseek(fp, offset, SEEK_SET);
+                fread(buffer, 1, BPB_BytesPerSec, fp);
+
+                for (i = 0; i < bytesRemainingToRead; i++)
+                {
+                    printf("%x ", buffer[i]);
+                }
+            }
+            printf("\n");
+        }
+    }
+
+    if (!found)
+    {
+        printf("Error: File was not Found\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+
+/* 
+*Name       : cd
+*Parameters : Directory the user chooses to go into
+*Returns    : 0 upon success and -1 upon failure
+*Description: Command that will change the working directory to the given directory. (Supports cd ../name)
+*/
+int cd(char *directoryName)
+{
+    int i;
+    int found = 0;
+    for (i = 0; i < NUM_ENTRIES; i++)
+    {
+        if (compare(directoryName, dir[i].DIR_Name))
+        {
+            int cluster = dir[i].DIR_FirstClusterLow;
+
+            if (cluster == 0)
+            {
+                cluster = 2;
+            }
+
+            int offset = LBAToOffset(cluster);
+            fseek(fp, offset, SEEK_SET);
+            fread(dir, sizeof(struct DirectoryEntry), NUM_ENTRIES, fp);
+
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        printf("Error Directory Wasn't found\n");
+        return -1;
+    }
+    return 0;
+}
 
 int main()
 {
@@ -191,55 +369,68 @@ int main()
         }
 
         // CODE TO HELP WITH DEUBG - prints tokenized input
-        // int token_index  = 0;
-        // for( token_index = 0; token_index < token_count; token_index ++ ) 
-        // {
-        //   printf("token[%d] = %s\n", token_index, token[token_index] );  
-        // }
-        // free( working_root );
+        int token_index  = 0;
+        for( token_index = 0; token_index < token_count; token_index ++ ) 
+        {
+          printf("token[%d] = %s\n", token_index, token[token_index] );  
+        }
+        free( working_root );
 
+        // Catch NULL inputs (when user presses enter)
+        if (token[0] == NULL && token[1] == NULL)
+        {
+            int a = 0;  // trival assignment
+        }
 
-        if (strcmp( token[0], "open" ) == 0)
+        else if (strcmp( token[0], "open" ) == 0)
         {
             // Condition if the user opens a file that is already opened
-            if (fp)
+            if (file_open)
             {
                 printf("The file is already opened\n");
             }
             else
             {
-                // Open the fat32.img
-                fp = fopen( token[1], "r");
-
-                if (fp)
+                if (access(token[1], F_OK) == 0)
                 {
-                    // seek set move from the beginning of the file
-                    // seek cur move from where we currently are
-                    // seek end move from the end of the file toward the head of the file
+                    // Open the fat32.img
+                    fp = fopen( token[1], "r");
+                    file_open = 1;
 
-                    fseek(fp,11,SEEK_SET);
-                    fread(&BPB_BytesPerSec,2,1,fp);
+                    if (file_open)
+                    {
+                        // seek set move from the beginning of the file
+                        // seek cur move from where we currently are
+                        // seek end move from the end of the file toward the head of the file
 
-                    fseek(fp,13,SEEK_SET);
-                    fread(&BPB_SecPerClus,1,1,fp);
+                        fseek(fp,11,SEEK_SET);
+                        fread(&BPB_BytesPerSec,2,1,fp);
 
-                    fseek(fp,14,SEEK_SET);
-                    fread(&BPB_RsvdSecCnt,2,1,fp);
+                        fseek(fp,13,SEEK_SET);
+                        fread(&BPB_SecPerClus,1,1,fp);
 
-                    fseek(fp,16,SEEK_SET);
-                    fread(&BPB_NumFATs,1,1,fp);
+                        fseek(fp,14,SEEK_SET);
+                        fread(&BPB_RsvdSecCnt,2,1,fp);
 
-                    fseek(fp,36,SEEK_SET);
-                    fread(&BPB_FATSz32,4,1,fp);
+                        fseek(fp,16,SEEK_SET);
+                        fread(&BPB_NumFATs,1,1,fp);
 
-                    RootDirSectors = (BPB_NumFATs * BPB_FATSz32 * BPB_BytesPerSec) +(BPB_RsvdSecCnt * BPB_BytesPerSec);
+                        fseek(fp,36,SEEK_SET);
+                        fread(&BPB_FATSz32,4,1,fp);
 
-                    fseek(fp,RootDirSectors,SEEK_SET);
-                    fread(dir, 16, sizeof(struct DirectoryEntry), fp);
+                        RootDirSectors = (BPB_NumFATs * BPB_FATSz32 * BPB_BytesPerSec) +(BPB_RsvdSecCnt * BPB_BytesPerSec);
+
+                        fseek(fp,RootDirSectors,SEEK_SET);
+                        fread(dir, 16, sizeof(struct DirectoryEntry), fp);
+                    }
+                    else
+                    {
+                        printf("ERROR: file system not found\n");
+                    }
                 }
                 else
                 {
-                    printf("ERROR: file system not found\n");
+                    printf("Could not find file image: %s\n", token[1]);
                 }
             }
 
@@ -254,77 +445,96 @@ int main()
 
         else if(strcmp( token[0], "cd" ) == 0)
         {
-            // Code for cd command       
+            if (file_open)
+            {
+                cd( token[1] );
+            }  
+            else
+            {
+                printf("ERROR: File Image Not Open\n");
+            }    
         }
 
 
         else if (strcmp(token[0], "ls" ) == 0)
         {
-            // Program requirements to support '.' and '..'
-            if (token[0] || strcmp( token[1], "." ) == 0 || strcmp( token[1], ".." ) == 0){
-                // Check to see if the file is open to view the contents
-                if (fp)
-                {
-                    int i ;
-                    for(i = 0; i < 16; i++)
-                    {
-                        char filename[12];
-                        strncpy(filename, dir[i].DIR_Name, 11);
-                        // Do not list deleted files or system volme names
-                        if((dir[i].DIR_Attr == 0x01 || dir[i].DIR_Attr == 0x10 || dir[i].DIR_Attr == 0x20 ) && filename[0] != 0xffffffe5)
-                        {
-                            printf("%s\n",filename);
-                        }
-                    }
-                }
+            if (fp)
+            {
+                ls();
             }
-        }
-
-
-        else if (strcmp( token[0], "info" ) == 0)
-        {
-            // Code for info command
+            else
+            {
+                printf("ERROR: File Image Not Open\n");
+            }   
         }
 
 
         else if (strcmp( token[0], "get" ) == 0)
         {
-            // Code for get command
+            if (file_open)
+            {
+                // Function call for get
+            }
+            else
+            {
+                printf("ERROR: File Image Not Open\n");
+            }
         }
 
 
         else if (strcmp( token[0], "read" ) == 0)
         {
-            // Code for read command
+            if (file_open)
+            {
+                if (token[2] && token[3])
+                {
+                    readfile( token[1], atoi(token[2]), atoi(token[3]) );
+                }
+                else
+                {
+                    printf("ERROR: Please use right format <filename> <position> <number of bytes>\n");
+                }
+            }
+            else
+            {
+                printf("ERROR: File Image Not Open\n");
+            }
         }
 
 
         else if (strcmp( token[0], "close" ) == 0)
         {
-            // Code for close command
+            if (file_open)
+            {
+                fclose(fp);
+                file_open = 0;
+            }
+            else
+            {
+                printf("ERROR: File has not been opened\n");
+            }
         }
 
 
-        else if (strcmp( token[0], "bpb" ) == 0){
-            printf("\nBPB_BytesPerSec\n");
-            printf("hexadecimal : %x\nbase 10     : %d\n\n", BPB_BytesPerSec, BPB_BytesPerSec );
-
-            printf("BPB_SecPerClus \n");
-            printf("hexadecimal : %x\nbase 10     : %d\n\n", BPB_SecPerClus,BPB_SecPerClus );
-
-            printf("BPB_RsvdSecCnt\n");
-            printf("hexadecimal : %x\nbase 10     : %d\n\n",BPB_RsvdSecCnt, BPB_RsvdSecCnt );
-
-            printf("BPB_NumFATS\n");
-            printf("hexadecimal : %x\nbase 10     : %d\n\n",BPB_NumFATs,BPB_NumFATs);
-
-            printf("BPB_FATSz32\n");
-            printf("hexadecimal : %x\nbase 10     : %d\n\n",BPB_FATSz32,BPB_FATSz32);
+        else if (strcmp( token[0], "bpb" ) == 0)
+        {
+            if (fp)
+            {
+                info();
+            }
+            else
+            {
+                printf("ERROR: File Image Not Open\n");
+            }
+            
         }
 
 
         else if (strcmp( token[0], "quit" ) == 0)
         {
+            free(working_root);
+            if (file_open)
+                fclose(fp);
             return 0;
         }
 
