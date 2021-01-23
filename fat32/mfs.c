@@ -342,6 +342,7 @@ int main(int argc,char ** argv)
           strncpy(input, token[1] , strlen(token[1]));
           char *string = strtok(input, ".");
           result = matching(string);
+          printf("result under stat is: %d  , %d", string[0], string[1]);
           if (result != -100)
           {
             printf("Attribute    Size    Starting Cluster Number \n");
