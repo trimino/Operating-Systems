@@ -72,10 +72,6 @@ struct _block
  * \param size size of the _block needed in bytes 
  *
  * \return a _block that fits the request or NULL if no free _block matches
- *
- * \TODO Implement Next Fit
- * \TODO Implement Best Fit
- * \TODO Implement Worst Fit
  */
 struct _block *findFreeBlock(struct _block **last, size_t size) 
 {
@@ -91,7 +87,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 #endif
 
 #if defined BEST && BEST == 0
-   //printf("TODO: Implement best fit here\n");
+
    size_t smallest = 0;
   
    struct _block *trackerr = NULL;
@@ -119,7 +115,7 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 #endif
 
 #if defined WORST && WORST == 0
-   //printf("TODO: Implement worst fit here\n");
+
    size_t biggest = 0;
    struct _block *trackerr = NULL;
    
@@ -145,7 +141,6 @@ struct _block *findFreeBlock(struct _block **last, size_t size)
 #endif
 
 #if defined NEXT && NEXT == 0
-   //printf("TODO: Implement next fit here\n");
 
    if(head != NULL)
    {
@@ -254,7 +249,8 @@ void *malloc(size_t size)
    struct _block *last = heapList;
    struct _block *next = findFreeBlock(&last, size);
    const int block_size = sizeof(struct _block);
-   /* TODO: Split free _block if possible */
+   
+
    
    if(next){
    
@@ -325,7 +321,6 @@ void free(void *ptr)
    num_frees++;
    struct _block* curr = heapList;
   
-   /* TODO: Coalesce free _blocks if needed */
       if( curr && curr->next )
          {
             if( curr->free  && curr->next->free  )
